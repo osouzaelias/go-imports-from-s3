@@ -2,12 +2,21 @@ package main
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
+
+const bucketName = "bucketelias"
+const fileName = "myFile0.csv"
+const backupFolder = "backup/"
+
+const tableName = "tb-import-from-s3-v6"
+const hashKey = "id"
+const rangeKey = "name"
 
 func main() {
 	sess, err := session.NewSession(&aws.Config{
@@ -33,7 +42,12 @@ func main() {
 		return
 	}
 
-	fmt.Println("Tabela importada com sucesso!")
+	if err = moveToBackup(sess); err != nil {
+		fmt.Println("Erro ao mover aquivo para backup:", err.Error())
+		return
+	}
+
+	fmt.Println("Processo concluído com sucesso!")
 }
 
 func waitForImportCompletion(svc *dynamodb.DynamoDB, importArn *string) error {
@@ -72,33 +86,55 @@ func getImportTableInput() *dynamodb.ImportTableInput {
 			},
 		},
 		S3BucketSource: &dynamodb.S3BucketSource{
-			S3Bucket:    aws.String("bucketelias"),
-			S3KeyPrefix: aws.String("myFile0.csv"),
+			S3Bucket:    aws.String(bucketName),
+			S3KeyPrefix: aws.String(fileName),
 		},
 		TableCreationParameters: &dynamodb.TableCreationParameters{
 			AttributeDefinitions: []*dynamodb.AttributeDefinition{
 				{
-					AttributeName: aws.String("id"),
+					AttributeName: aws.String(hashKey),
 					AttributeType: aws.String("S"),
 				},
 				{
-					AttributeName: aws.String("name"),
+					AttributeName: aws.String(rangeKey),
 					AttributeType: aws.String("S"),
 				},
 			},
 			KeySchema: []*dynamodb.KeySchemaElement{
 				{
-					AttributeName: aws.String("id"),
+					AttributeName: aws.String(hashKey),
 					KeyType:       aws.String("HASH"),
 				},
 				{
-					AttributeName: aws.String("name"),
+					AttributeName: aws.String(rangeKey),
 					KeyType:       aws.String("RANGE"),
 				},
 			},
 			BillingMode: aws.String("PAY_PER_REQUEST"),
-			TableName:   aws.String("tb-import-from-s3-v4"),
+			TableName:   aws.String(tableName),
 		},
 	}
 	return importTableInput
+}
+
+func moveToBackup(sess *session.Session) error {
+	svc := s3.New(sess)
+
+	copyInput := &s3.CopyObjectInput{
+		Bucket:     aws.String(bucketName),
+		CopySource: aws.String(bucketName + "/" + fileName),
+		Key:        aws.String(backupFolder + fileName),
+	}
+
+	_, err := svc.CopyObject(copyInput)
+	if err != nil {
+		return err
+	}
+
+	deleteInput := &s3.DeleteObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(fileName),
+	}
+	_, err = svc.DeleteObject(deleteInput)
+	return err
 }
