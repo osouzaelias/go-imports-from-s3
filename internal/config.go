@@ -28,13 +28,13 @@ func NewConfig() *Config {
 	}
 
 	return &Config{
-		bucket:    "bucketelias",
-		backup:    "backup/",
-		file:      "myFile0.csv",
-		table:     "tb-import-from-s3-v7",
-		delimiter: ";",
-		hashKey:   "id",
-		rangeKey:  "name",
+		bucket:    "bucketelias",          // Nome do Bucket S3
+		backup:    "backup/",              // Diretório de backup dentro do bucket
+		file:      "myFile0.csv",          // Arquivo que deverá estar na raiz do bucket
+		table:     "tb-import-from-s3-v7", // Nome da tabela do dynamodb que será criada
+		delimiter: ";",                    // O caracter separador do arquivo
+		hashKey:   "id",                   // Nome da partition key da tabela DynamoDB
+		rangeKey:  "name",                 // Nome da sort key da tabela DynamoDB
 		session:   *sess,
 	}
 
