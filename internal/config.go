@@ -4,7 +4,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"log"
-	"os"
 )
 
 type Config struct {
@@ -20,7 +19,8 @@ type Config struct {
 
 func NewConfig() *Config {
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(os.Getenv("REGION")),
+		//Region: aws.String(os.Getenv("REGION")),
+		Region: aws.String("us-west-2"),
 	})
 
 	if err != nil {
@@ -28,13 +28,24 @@ func NewConfig() *Config {
 	}
 
 	return &Config{
-		bucket:    os.Getenv("BUCKET"),
-		backup:    os.Getenv("BACKUP"),
-		file:      os.Getenv("FILE"),
-		table:     os.Getenv("TABLE"),
-		delimiter: os.Getenv("DELIMITER"),
-		hashKey:   os.Getenv("HASH_KEY"),
-		rangeKey:  os.Getenv("RANGE_KEY"),
+		bucket:    "bucketelias",
+		backup:    "backup/",
+		file:      "myFile0.csv",
+		table:     "tb-import-from-s3-v7",
+		delimiter: ";",
+		hashKey:   "id",
+		rangeKey:  "name",
 		session:   *sess,
 	}
+
+	//return &Config{
+	//	bucket:    os.Getenv("BUCKET"),
+	//	backup:    os.Getenv("BACKUP"),
+	//	file:      os.Getenv("FILE"),
+	//	table:     os.Getenv("TABLE"),
+	//	delimiter: os.Getenv("DELIMITER"),
+	//	hashKey:   os.Getenv("HASH_KEY"),
+	//	rangeKey:  os.Getenv("RANGE_KEY"),
+	//	session:   *sess,
+	//}
 }
