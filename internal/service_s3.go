@@ -1,14 +1,10 @@
 package internal
 
 import (
-	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"log"
 )
-
-//const bucketName = "bucketelias"
-//const s.cfg.file = "myFile0.csv"
-//const backupFolder = "backup/"
 
 type ServiceS3 struct {
 	svc s3.S3
@@ -22,7 +18,7 @@ func NewServiceS3(c Config) *ServiceS3 {
 	}
 }
 
-func (s ServiceS3) MoveToBackup() error {
+func (s ServiceS3) MoveToBackup() {
 	copyInput := &s3.CopyObjectInput{
 		Bucket:     aws.String(s.cfg.bucket),
 		CopySource: aws.String(s.cfg.bucket + "/" + s.cfg.file),
@@ -31,15 +27,24 @@ func (s ServiceS3) MoveToBackup() error {
 
 	_, err := s.svc.CopyObject(copyInput)
 	if err != nil {
-		return err
+		log.Fatalln("Error > MoveToBackup >", err)
+	} else {
+		log.Printf("Arquivo movido de %s para %s",
+			aws.StringValue(copyInput.CopySource),
+			aws.StringValue(copyInput.Key))
 	}
 
 	deleteInput := &s3.DeleteObjectInput{
 		Bucket: aws.String(s.cfg.bucket),
 		Key:    aws.String(s.cfg.file),
 	}
+
 	_, err = s.svc.DeleteObject(deleteInput)
-	return err
+	if err != nil {
+		log.Fatalln("Error > MoveToBackup >", err)
+	} else {
+		log.Printf("Arquivo excluído de %s", aws.StringValue(copyInput.CopySource))
+	}
 }
 
 func (s ServiceS3) FileExists() bool {
@@ -49,11 +54,11 @@ func (s ServiceS3) FileExists() bool {
 	})
 
 	if err != nil {
-		fmt.Println("Arquivo não encontrrado, erro:", err)
+		log.Println("Arquivo não encontrrado:", err)
 		return false
 	}
 
-	fmt.Println("Arquivo encontrado, tamanho:", aws.Int64Value(output.ContentLength))
+	log.Println("Arquivo encontrado, tamanho:", aws.Int64Value(output.ContentLength))
 
 	return true
 }

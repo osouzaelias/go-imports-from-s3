@@ -8,10 +8,6 @@ import (
 	"time"
 )
 
-//const tableName = "tb-import-from-s3-v6"
-//const hashKey = "id"
-//const rangeKey = "name"
-
 type ServiceDynamoDb struct {
 	svc dynamodb.DynamoDB
 	cfg Config
@@ -24,7 +20,7 @@ func NewServiceDynamoDb(c Config) *ServiceDynamoDb {
 	}
 }
 
-func (s ServiceDynamoDb) Import() error {
+func (s ServiceDynamoDb) Import() {
 	if describeTable, exists := s.tableExists(); exists {
 		if aws.StringValue(describeTable.Table.TableStatus) != dynamodb.TableStatusActive {
 			describeTable = s.waitFinalizationTableStatus()
@@ -35,24 +31,24 @@ func (s ServiceDynamoDb) Import() error {
 		}
 	}
 
-	importTable, err := s.svc.ImportTable(s.getImportTableInput())
-	if err != nil {
-		return err
+	importTable, errImportTable := s.svc.ImportTable(s.getImportTableInput())
+	if errImportTable != nil {
+		log.Fatalln("Error > Import >", errImportTable)
 	}
 
 	for {
-		describeImport, err := s.svc.DescribeImport(&dynamodb.DescribeImportInput{ImportArn: importTable.ImportTableDescription.ImportArn})
-		if err != nil {
-			return err
+		describeImport, errDescribeImport := s.svc.DescribeImport(&dynamodb.DescribeImportInput{ImportArn: importTable.ImportTableDescription.ImportArn})
+		if errDescribeImport != nil {
+			log.Fatalln("Error > Import >", errDescribeImport)
 		}
 
 		switch *describeImport.ImportTableDescription.ImportStatus {
 		case dynamodb.ImportStatusCompleted:
-			return nil
+			return
 		case dynamodb.ImportStatusCancelled, dynamodb.ImportStatusFailed:
 			log.Println("A importação foi interrompida")
 			s.deleteTable()
-			log.Fatalln("Error > Import:", aws.StringValue(describeImport.ImportTableDescription.FailureMessage))
+			log.Fatalln("Error > Import >", aws.StringValue(describeImport.ImportTableDescription.FailureMessage))
 		default:
 			log.Println("Aguardando a importação do arquivo...")
 			time.Sleep(time.Second * 5)
@@ -82,7 +78,7 @@ func (s ServiceDynamoDb) deleteTable() {
 	log.Printf("Excluíndo a tabela %s", s.cfg.table)
 	output, err := s.svc.DeleteTable(&dynamodb.DeleteTableInput{TableName: aws.String(s.cfg.table)})
 	if err != nil {
-		log.Fatalln("Error > deleteTable:", err)
+		log.Fatalln("Error > deleteTable >", err)
 	}
 
 	if aws.StringValue(output.TableDescription.TableStatus) == dynamodb.TableStatusDeleting {
@@ -110,7 +106,7 @@ func (s ServiceDynamoDb) tableExists() (*dynamodb.DescribeTableOutput, bool) {
 			log.Printf("A tabela %s não foi encontrada\n", s.cfg.table)
 			return nil, false
 		} else {
-			log.Fatalln("Error > tableExists:", err)
+			log.Fatalln("Error > tableExists >", err)
 		}
 	}
 	return output, true
