@@ -50,6 +50,7 @@ func (s ServiceDynamoDb) Import() error {
 		case dynamodb.ImportStatusCompleted:
 			return nil
 		case dynamodb.ImportStatusCancelled, dynamodb.ImportStatusFailed:
+			log.Println("A importação foi interrompida")
 			s.deleteTable()
 			log.Fatalln("Error > Import:", aws.StringValue(describeImport.ImportTableDescription.FailureMessage))
 		default:
@@ -78,6 +79,7 @@ func (s ServiceDynamoDb) waitFinalizationTableStatus() *dynamodb.DescribeTableOu
 }
 
 func (s ServiceDynamoDb) deleteTable() {
+	log.Printf("Excluíndo a tabela %s", s.cfg.table)
 	output, err := s.svc.DeleteTable(&dynamodb.DeleteTableInput{TableName: aws.String(s.cfg.table)})
 	if err != nil {
 		log.Fatalln("Error > deleteTable:", err)
@@ -105,7 +107,7 @@ func (s ServiceDynamoDb) tableExists() (*dynamodb.DescribeTableOutput, bool) {
 	if err != nil {
 		aerr, ok := err.(awserr.Error)
 		if ok && aerr.Code() == dynamodb.ErrCodeResourceNotFoundException {
-			log.Printf("A tabela %s não existe\n", s.cfg.table)
+			log.Printf("A tabela %s não foi encontrada\n", s.cfg.table)
 			return nil, false
 		} else {
 			log.Fatalln("Error > tableExists:", err)
