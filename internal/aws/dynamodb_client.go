@@ -1,4 +1,4 @@
-package internal
+package aws
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
@@ -8,34 +8,57 @@ import (
 	"time"
 )
 
-type ServiceDynamoDb struct {
+type DynamoDbClient struct {
 	svc dynamodb.DynamoDB
-	cfg Config
+	cfg config
 }
 
-func NewServiceDynamoDb(c Config) *ServiceDynamoDb {
-	return &ServiceDynamoDb{
+func NewDynamoDbClient() *DynamoDbClient {
+	c := newConfigDynamoDb()
+	return &DynamoDbClient{
 		svc: *dynamodb.New(&c.session),
-		cfg: c,
+		cfg: *c,
 	}
 }
 
-func (s ServiceDynamoDb) Import() {
-	if describeTable, exists := s.tableExists(); exists {
-		if aws.StringValue(describeTable.Table.TableStatus) != dynamodb.TableStatusActive {
-			describeTable = s.waitFinalizationTableStatus()
-		}
+const (
+	ImportStatusCompleted = "COMPLETED"
+)
 
-		if aws.StringValue(describeTable.Table.TableStatus) == dynamodb.TableStatusActive {
-			s.deleteTable()
-		}
-	}
+func (s DynamoDbClient) Import() string {
+	s.prepareForImport()
 
-	importTable, errImportTable := s.svc.ImportTable(s.getImportTableInput())
+	importTableOutput, errImportTable := s.svc.ImportTable(s.getImportTableInput())
 	if errImportTable != nil {
 		log.Fatalln("Error > Import >", errImportTable)
 	}
 
+	describeImportOutput := s.waitImportTable(importTableOutput)
+
+	switch *describeImportOutput.ImportTableDescription.ImportStatus {
+	case dynamodb.ImportStatusCompleted:
+		log.Println("Importação do arquivo concluída")
+	case dynamodb.ImportStatusCancelled, dynamodb.ImportStatusFailed:
+		s.deleteTable()
+		log.Fatalln("Error > Import >", *describeImportOutput.ImportTableDescription.FailureMessage)
+	}
+
+	return ImportStatusCompleted
+}
+
+func (s DynamoDbClient) prepareForImport() {
+	if describeTable, exists := s.tableExists(); exists {
+		if *describeTable.Table.TableStatus != dynamodb.TableStatusActive {
+			describeTable = s.waitFinalizationTableStatus()
+		}
+
+		if *describeTable.Table.TableStatus == dynamodb.TableStatusActive {
+			s.deleteTable()
+		}
+	}
+}
+
+func (s DynamoDbClient) waitImportTable(importTable *dynamodb.ImportTableOutput) *dynamodb.DescribeImportOutput {
 	for {
 		describeImport, errDescribeImport := s.svc.DescribeImport(&dynamodb.DescribeImportInput{ImportArn: importTable.ImportTableDescription.ImportArn})
 		if errDescribeImport != nil {
@@ -43,12 +66,8 @@ func (s ServiceDynamoDb) Import() {
 		}
 
 		switch *describeImport.ImportTableDescription.ImportStatus {
-		case dynamodb.ImportStatusCompleted:
-			return
-		case dynamodb.ImportStatusCancelled, dynamodb.ImportStatusFailed:
-			log.Println("A importação foi interrompida")
-			s.deleteTable()
-			log.Fatalln("Error > Import >", aws.StringValue(describeImport.ImportTableDescription.FailureMessage))
+		case dynamodb.ImportStatusCompleted, dynamodb.ImportStatusCancelled, dynamodb.ImportStatusFailed:
+			return describeImport
 		default:
 			log.Println("Aguardando a importação do arquivo...")
 			time.Sleep(time.Second * 5)
@@ -56,32 +75,32 @@ func (s ServiceDynamoDb) Import() {
 	}
 }
 
-func (s ServiceDynamoDb) waitFinalizationTableStatus() *dynamodb.DescribeTableOutput {
+func (s DynamoDbClient) waitFinalizationTableStatus() *dynamodb.DescribeTableOutput {
 	var output *dynamodb.DescribeTableOutput
 	var exists bool
 	for {
 		output, exists = s.tableExists()
 		if exists == false ||
-			aws.StringValue(output.Table.TableStatus) == dynamodb.TableStatusActive ||
-			aws.StringValue(output.Table.TableStatus) == dynamodb.TableStatusArchived ||
-			aws.StringValue(output.Table.TableStatus) == dynamodb.TableStatusInaccessibleEncryptionCredentials {
+			*output.Table.TableStatus == dynamodb.TableStatusActive ||
+			*output.Table.TableStatus == dynamodb.TableStatusArchived ||
+			*output.Table.TableStatus == dynamodb.TableStatusInaccessibleEncryptionCredentials {
 			break
 		} else {
-			log.Printf("A tabela %s está no status %s aguardando concluir...\n", s.cfg.table, aws.StringValue(output.Table.TableStatus))
+			log.Printf("A tabela %s está no status %s aguardando concluir...\n", s.cfg.table, *output.Table.TableStatus)
 			time.Sleep(5 * time.Second)
 		}
 	}
 	return output
 }
 
-func (s ServiceDynamoDb) deleteTable() {
+func (s DynamoDbClient) deleteTable() {
 	log.Printf("Excluíndo a tabela %s", s.cfg.table)
 	output, err := s.svc.DeleteTable(&dynamodb.DeleteTableInput{TableName: aws.String(s.cfg.table)})
 	if err != nil {
 		log.Fatalln("Error > deleteTable >", err)
 	}
 
-	if aws.StringValue(output.TableDescription.TableStatus) == dynamodb.TableStatusDeleting {
+	if *output.TableDescription.TableStatus == dynamodb.TableStatusDeleting {
 		for {
 			resp, exists := s.tableExists()
 			if exists && aws.StringValue(resp.Table.TableStatus) == dynamodb.TableStatusDeleting {
@@ -96,7 +115,7 @@ func (s ServiceDynamoDb) deleteTable() {
 	log.Printf("A tabela %s foi excluída com sucesso\n", s.cfg.table)
 }
 
-func (s ServiceDynamoDb) tableExists() (*dynamodb.DescribeTableOutput, bool) {
+func (s DynamoDbClient) tableExists() (*dynamodb.DescribeTableOutput, bool) {
 	output, err := s.svc.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String(s.cfg.table)})
 
 	// Se houver um erro, verifica se é porque a tabela não existe
@@ -112,7 +131,7 @@ func (s ServiceDynamoDb) tableExists() (*dynamodb.DescribeTableOutput, bool) {
 	return output, true
 }
 
-func (s ServiceDynamoDb) getImportTableInput() *dynamodb.ImportTableInput {
+func (s DynamoDbClient) getImportTableInput() *dynamodb.ImportTableInput {
 	importTableInput := &dynamodb.ImportTableInput{
 		InputFormat: aws.String("CSV"),
 		InputFormatOptions: &dynamodb.InputFormatOptions{

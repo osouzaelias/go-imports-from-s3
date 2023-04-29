@@ -1,4 +1,4 @@
-package internal
+package aws
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
@@ -6,19 +6,20 @@ import (
 	"log"
 )
 
-type ServiceS3 struct {
+type S3Client struct {
 	svc s3.S3
-	cfg Config
+	cfg config
 }
 
-func NewServiceS3(c Config) *ServiceS3 {
-	return &ServiceS3{
+func NewS3Client() *S3Client {
+	c := newConfigS3()
+	return &S3Client{
 		svc: *s3.New(&c.session),
-		cfg: c,
+		cfg: *c,
 	}
 }
 
-func (s ServiceS3) MoveToBackup() {
+func (s S3Client) MoveToBackup() {
 	copyInput := &s3.CopyObjectInput{
 		Bucket:     aws.String(s.cfg.bucket),
 		CopySource: aws.String(s.cfg.bucket + "/" + s.cfg.file),
@@ -47,7 +48,7 @@ func (s ServiceS3) MoveToBackup() {
 	}
 }
 
-func (s ServiceS3) FileExists() bool {
+func (s S3Client) FileExists() bool {
 	output, err := s.svc.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(s.cfg.bucket),
 		Key:    aws.String(s.cfg.file),
@@ -58,7 +59,7 @@ func (s ServiceS3) FileExists() bool {
 		return false
 	}
 
-	log.Println("Arquivo encontrado, tamanho:", aws.Int64Value(output.ContentLength))
+	log.Println("Arquivo encontrado, tamanho:", *output.ContentLength)
 
 	return true
 }
