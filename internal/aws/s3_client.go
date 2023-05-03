@@ -7,15 +7,14 @@ import (
 )
 
 type S3Client struct {
-	svc s3.S3
-	cfg config
+	svc *s3.S3
+	cfg *Config
 }
 
-func NewS3Client() *S3Client {
-	c := newConfigS3()
+func NewS3Client(c *Config) *S3Client {
 	return &S3Client{
-		svc: *s3.New(&c.session),
-		cfg: *c,
+		s3.New(c.session),
+		c,
 	}
 }
 

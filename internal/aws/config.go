@@ -8,7 +8,12 @@ import (
 	"log"
 )
 
-type config struct {
+type timeToLive struct {
+	enabled       bool
+	attributeName string
+}
+
+type Config struct {
 	bucket    string
 	backup    string
 	file      string
@@ -16,47 +21,33 @@ type config struct {
 	table     string
 	hashKey   string
 	rangeKey  string
-	session   session.Session
-	tracer    trace.Tracer
+	ttl       timeToLive
+	session   *session.Session
+	tracer    *trace.Tracer
 }
 
-func newConfigDynamoDb() *config {
-	return &config{
-		bucket:    "bucketelias",
-		file:      "myFile0.csv",
-		table:     "tb-import-from-s3-v7",
-		delimiter: ";",
-		hashKey:   "id",
-		rangeKey:  "name",
-		session:   *getAWSConfigSession(),
-		tracer:    *telemetry.GetTracer(),
+func NewConfig() *Config {
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String("us-west-2"),
+	})
+
+	if err != nil {
+		log.Fatalln(err)
 	}
-}
 
-func newConfigS3() *config {
-	return &config{
+	return &Config{
 		bucket:    "bucketelias",
 		backup:    "backup/",
 		file:      "myFile0.csv",
+		table:     "tb-import-from-s3-v8",
 		delimiter: ";",
-		session:   *getAWSConfigSession(),
-		tracer:    *telemetry.GetTracer(),
+		hashKey:   "id",
+		rangeKey:  "firstname",
+		ttl: timeToLive{
+			enabled:       true,
+			attributeName: "ttl",
+		},
+		session: sess,
+		tracer:  telemetry.GetTracer(),
 	}
-}
-
-var instance *session.Session
-
-func getAWSConfigSession() *session.Session {
-	if instance == nil {
-		sess, err := session.NewSession(&aws.Config{
-			Region: aws.String("us-west-2"),
-		})
-
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		instance = sess
-	}
-	return instance
 }

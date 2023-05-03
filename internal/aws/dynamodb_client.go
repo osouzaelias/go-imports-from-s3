@@ -9,16 +9,12 @@ import (
 )
 
 type DynamoDbClient struct {
-	svc dynamodb.DynamoDB
-	cfg config
+	svc *dynamodb.DynamoDB
+	cfg *Config
 }
 
-func NewDynamoDbClient() *DynamoDbClient {
-	c := newConfigDynamoDb()
-	return &DynamoDbClient{
-		svc: *dynamodb.New(&c.session),
-		cfg: *c,
-	}
+func NewDynamoDbClient(c *Config) *DynamoDbClient {
+	return &DynamoDbClient{dynamodb.New(c.session), c}
 }
 
 const (
@@ -129,6 +125,42 @@ func (s DynamoDbClient) tableExists() (*dynamodb.DescribeTableOutput, bool) {
 		}
 	}
 	return output, true
+}
+
+func (s DynamoDbClient) EnableTimeToLive() {
+	if s.cfg.ttl.enabled {
+		return
+	}
+
+	_, err := s.svc.UpdateTimeToLive(&dynamodb.UpdateTimeToLiveInput{
+		TableName: aws.String(s.cfg.table),
+		TimeToLiveSpecification: &dynamodb.TimeToLiveSpecification{
+			AttributeName: aws.String(s.cfg.ttl.attributeName),
+			Enabled:       aws.Bool(s.cfg.ttl.enabled),
+		},
+	})
+
+	if err != nil {
+		log.Fatalln("Error > enableTimeToLive >", err)
+	}
+
+	for {
+		output, err := s.svc.DescribeTimeToLive(&dynamodb.DescribeTimeToLiveInput{
+			TableName: aws.String(s.cfg.table),
+		})
+
+		if err != nil {
+			log.Fatalln("Error > enableTimeToLive >", err)
+		}
+
+		if *output.TimeToLiveDescription.TimeToLiveStatus == dynamodb.TimeToLiveStatusEnabled {
+			log.Println("TTL habilitado com sucesso na tabela", s.cfg.table)
+			break
+		}
+
+		log.Println("Aguardando habilitação do TTL na tabela", s.cfg.table)
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func (s DynamoDbClient) getImportTableInput() *dynamodb.ImportTableInput {
