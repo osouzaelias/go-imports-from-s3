@@ -23,7 +23,7 @@ type Config struct {
 	rangeKey  string
 	ttl       timeToLive
 	session   *session.Session
-	tracer    *trace.Tracer
+	tracer    trace.Tracer
 }
 
 func NewConfig() *Config {
@@ -38,8 +38,8 @@ func NewConfig() *Config {
 	return &Config{
 		bucket:    "bucketelias",
 		backup:    "backup/",
-		file:      "myFile0.csv",
-		table:     "tb-import-from-s3-v8",
+		file:      "myFile4.csv",
+		table:     "tb-import-from-s3-v9",
 		delimiter: ";",
 		hashKey:   "id",
 		rangeKey:  "firstname",

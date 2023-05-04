@@ -129,37 +129,35 @@ func (s DynamoDbClient) tableExists() (*dynamodb.DescribeTableOutput, bool) {
 
 func (s DynamoDbClient) EnableTimeToLive() {
 	if s.cfg.ttl.enabled {
-		return
-	}
-
-	_, err := s.svc.UpdateTimeToLive(&dynamodb.UpdateTimeToLiveInput{
-		TableName: aws.String(s.cfg.table),
-		TimeToLiveSpecification: &dynamodb.TimeToLiveSpecification{
-			AttributeName: aws.String(s.cfg.ttl.attributeName),
-			Enabled:       aws.Bool(s.cfg.ttl.enabled),
-		},
-	})
-
-	if err != nil {
-		log.Fatalln("Error > enableTimeToLive >", err)
-	}
-
-	for {
-		output, err := s.svc.DescribeTimeToLive(&dynamodb.DescribeTimeToLiveInput{
+		_, err := s.svc.UpdateTimeToLive(&dynamodb.UpdateTimeToLiveInput{
 			TableName: aws.String(s.cfg.table),
+			TimeToLiveSpecification: &dynamodb.TimeToLiveSpecification{
+				AttributeName: aws.String(s.cfg.ttl.attributeName),
+				Enabled:       aws.Bool(s.cfg.ttl.enabled),
+			},
 		})
 
 		if err != nil {
 			log.Fatalln("Error > enableTimeToLive >", err)
 		}
 
-		if *output.TimeToLiveDescription.TimeToLiveStatus == dynamodb.TimeToLiveStatusEnabled {
-			log.Println("TTL habilitado com sucesso na tabela", s.cfg.table)
-			break
-		}
+		for {
+			output, err := s.svc.DescribeTimeToLive(&dynamodb.DescribeTimeToLiveInput{
+				TableName: aws.String(s.cfg.table),
+			})
 
-		log.Println("Aguardando habilitação do TTL na tabela", s.cfg.table)
-		time.Sleep(5 * time.Second)
+			if err != nil {
+				log.Fatalln("Error > enableTimeToLive >", err)
+			}
+
+			if *output.TimeToLiveDescription.TimeToLiveStatus == dynamodb.TimeToLiveStatusEnabled {
+				log.Println("TTL habilitado com sucesso na tabela", s.cfg.table)
+				break
+			}
+
+			log.Println("Aguardando habilitação do TTL na tabela", s.cfg.table)
+			time.Sleep(5 * time.Second)
+		}
 	}
 }
 

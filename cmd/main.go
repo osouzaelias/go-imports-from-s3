@@ -10,6 +10,7 @@ func main() {
 	//defer shutdown()
 
 	cfg := aws.NewConfig()
+
 	s3Client := aws.NewS3Client(cfg)
 
 	if s3Client.FileExists() {

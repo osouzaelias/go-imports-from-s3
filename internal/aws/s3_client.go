@@ -54,11 +54,11 @@ func (s S3Client) FileExists() bool {
 	})
 
 	if err != nil {
-		log.Println("Arquivo não encontrrado:", err)
+		log.Printf("Arquivo %s não encontrado", s.cfg.file)
 		return false
 	}
 
-	log.Println("Arquivo encontrado, tamanho:", *output.ContentLength)
+	log.Printf("Arquivo %s com %d bytes encontrado", s.cfg.file, *output.ContentLength)
 
 	return true
 }

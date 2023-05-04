@@ -5,11 +5,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var instance *trace.Tracer
+var instance trace.Tracer
 
-func GetTracer() *trace.Tracer {
+func GetTracer() trace.Tracer {
 	if instance == nil {
-		*instance = otel.Tracer("go-import-from-s3")
+		instance = otel.Tracer("go-import-from-s3")
 	}
 	return instance
 }
