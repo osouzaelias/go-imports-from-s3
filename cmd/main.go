@@ -10,18 +10,32 @@ func main() {
 	//defer shutdown()
 
 	cfg := aws.NewConfig()
-
 	s3Client := aws.NewS3Client(cfg)
 
 	if s3Client.FileExists() {
 
 		dynamoDbClient := aws.NewDynamoDbClient(cfg)
+		err := dynamoDbClient.Import()
 
-		if status := dynamoDbClient.Import(); status == aws.ImportStatusCompleted {
-			s3Client.MoveToBackup()
+		if err == nil {
 
-			// Session for extra settings
-			dynamoDbClient.EnableTimeToLive()
+			err = s3Client.MoveToBackup()
+
+			if err == nil {
+				err = s3Client.DeleteFile()
+				if err != nil {
+					log.Println("Error > DeleteFile >", err)
+				}
+			} else {
+				log.Println("Error > MoveToBackup >", err)
+			}
+
+			err = dynamoDbClient.EnableTimeToLive()
+			if err != nil {
+				log.Println("Error > EnableTimeToLive >", err)
+			}
+		} else {
+			log.Println("Error > Import >", err)
 		}
 	}
 

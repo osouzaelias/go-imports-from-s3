@@ -1,10 +1,12 @@
 package aws
 
 import (
+	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -17,16 +19,12 @@ func NewDynamoDbClient(c *Config) *DynamoDbClient {
 	return &DynamoDbClient{dynamodb.New(c.session), c}
 }
 
-const (
-	ImportStatusCompleted = "COMPLETED"
-)
-
-func (s DynamoDbClient) Import() string {
+func (s DynamoDbClient) Import() error {
 	s.prepareForImport()
 
 	importTableOutput, errImportTable := s.svc.ImportTable(s.getImportTableInput())
 	if errImportTable != nil {
-		log.Fatalln("Error > Import >", errImportTable)
+		return errImportTable
 	}
 
 	describeImportOutput := s.waitImportTable(importTableOutput)
@@ -36,10 +34,10 @@ func (s DynamoDbClient) Import() string {
 		log.Println("Importação do arquivo concluída")
 	case dynamodb.ImportStatusCancelled, dynamodb.ImportStatusFailed:
 		s.deleteTable()
-		log.Fatalln("Error > Import >", *describeImportOutput.ImportTableDescription.FailureMessage)
+		return errors.New(*describeImportOutput.ImportTableDescription.FailureMessage)
 	}
 
-	return ImportStatusCompleted
+	return nil
 }
 
 func (s DynamoDbClient) prepareForImport() {
@@ -127,27 +125,27 @@ func (s DynamoDbClient) tableExists() (*dynamodb.DescribeTableOutput, bool) {
 	return output, true
 }
 
-func (s DynamoDbClient) EnableTimeToLive() {
-	if s.cfg.ttl.enabled {
+func (s DynamoDbClient) EnableTimeToLive() error {
+	if len(strings.TrimSpace(s.cfg.ttlAttributeName)) > 0 {
 		_, err := s.svc.UpdateTimeToLive(&dynamodb.UpdateTimeToLiveInput{
 			TableName: aws.String(s.cfg.table),
 			TimeToLiveSpecification: &dynamodb.TimeToLiveSpecification{
-				AttributeName: aws.String(s.cfg.ttl.attributeName),
-				Enabled:       aws.Bool(s.cfg.ttl.enabled),
+				AttributeName: aws.String(s.cfg.ttlAttributeName),
+				Enabled:       aws.Bool(true),
 			},
 		})
 
 		if err != nil {
-			log.Fatalln("Error > enableTimeToLive >", err)
+			return err
 		}
 
 		for {
-			output, err := s.svc.DescribeTimeToLive(&dynamodb.DescribeTimeToLiveInput{
+			output, errorDescribeTTL := s.svc.DescribeTimeToLive(&dynamodb.DescribeTimeToLiveInput{
 				TableName: aws.String(s.cfg.table),
 			})
 
-			if err != nil {
-				log.Fatalln("Error > enableTimeToLive >", err)
+			if errorDescribeTTL != nil {
+				return errorDescribeTTL
 			}
 
 			if *output.TimeToLiveDescription.TimeToLiveStatus == dynamodb.TimeToLiveStatusEnabled {
@@ -159,6 +157,8 @@ func (s DynamoDbClient) EnableTimeToLive() {
 			time.Sleep(5 * time.Second)
 		}
 	}
+
+	return nil
 }
 
 func (s DynamoDbClient) getImportTableInput() *dynamodb.ImportTableInput {

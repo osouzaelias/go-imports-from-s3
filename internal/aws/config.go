@@ -8,22 +8,17 @@ import (
 	"log"
 )
 
-type timeToLive struct {
-	enabled       bool
-	attributeName string
-}
-
 type Config struct {
-	bucket    string
-	backup    string
-	file      string
-	delimiter string
-	table     string
-	hashKey   string
-	rangeKey  string
-	ttl       timeToLive
-	session   *session.Session
-	tracer    trace.Tracer
+	bucket           string
+	backup           string
+	file             string
+	delimiter        string
+	table            string
+	hashKey          string
+	rangeKey         string
+	ttlAttributeName string
+	session          *session.Session
+	tracer           trace.Tracer
 }
 
 func NewConfig() *Config {
@@ -36,18 +31,15 @@ func NewConfig() *Config {
 	}
 
 	return &Config{
-		bucket:    "bucketelias",
-		backup:    "backup/",
-		file:      "myFile4.csv",
-		table:     "tb-import-from-s3-v9",
-		delimiter: ";",
-		hashKey:   "id",
-		rangeKey:  "firstname",
-		ttl: timeToLive{
-			enabled:       true,
-			attributeName: "ttl",
-		},
-		session: sess,
-		tracer:  telemetry.GetTracer(),
+		bucket:           "bucketelias",
+		backup:           "backup",
+		file:             "testdata.csv",
+		table:            "tb-import-from-s3",
+		delimiter:        ",",
+		hashKey:          "ID",
+		rangeKey:         "FirstName",
+		ttlAttributeName: "DataExpirationDate",
+		session:          sess,
+		tracer:           telemetry.GetTracer(),
 	}
 }
