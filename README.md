@@ -19,15 +19,15 @@ abaixo sejam atendidos.
 - Permissão de leitura, escrita, e exclusão no DynamoDB
 - Go 1.20.x instalado
 - Git para clonar o repositório
-- IDE GoLand ou VSCode para editar o projeto
+- IDE com suporte ao Go para editar o projeto
 
 #### Gerando massa para teste
-Para gerar massa de teste, você pode usar esta ferramenta   
-https://extendsclass.com/csv-generator.html  
+Para gerar massa de teste, rode a função `main` que está no diretório `cmd/testdata`,
+após o termino da execução um arquivo chamado `testdata.csv` será gerado na raiz do projeto.
 
 #### Configurando o projeto
 A configuração do projeto é bem simples. No diretório
-`internal` tem o `config.go` nele você poderá definir as
+`internal/aws` tem o `config.go` nele você poderá definir as
 configurações necessárias para o projeto rodar.
 
 ## Referencias
