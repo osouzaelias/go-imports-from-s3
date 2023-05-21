@@ -32,11 +32,11 @@ configurações necessárias para o projeto rodar.
 
 ## Referencias
 
-Documentação do serviço
+Documentação do serviço  
 https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/S3DataImport.HowItWorks.html
 
-Boas práticas de uso do serviço
+Boas práticas de uso do serviço  
 https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/S3DataImport.BestPractices.html
 
-Referencia para estrutura do projeto  
+Referencia para estrutura do projeto    
 https://github.com/golang-standards/project-layout

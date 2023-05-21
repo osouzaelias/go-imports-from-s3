@@ -1,7 +1,7 @@
 FROM golang:1.20
 LABEL maintainer="osouzaelias@gmail.com"
 
-COPY .. /app
+COPY . /app
 
 WORKDIR /app/cmd
 
