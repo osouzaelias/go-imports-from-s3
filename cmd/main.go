@@ -37,6 +37,15 @@ func main() {
 		} else {
 			log.Println("Error > Import >", err)
 		}
+	} else {
+		if cfg.AlwaysDeleteTable() {
+			dynamoDbClient := aws.NewDynamoDbClient(cfg)
+
+			err := dynamoDbClient.PrepareForImport()
+			if err != nil {
+				log.Println("Error > PrepareForImport >", err)
+			}
+		}
 	}
 
 	log.Println("Processamento concluído com sucesso.")

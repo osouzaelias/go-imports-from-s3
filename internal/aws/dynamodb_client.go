@@ -2,6 +2,7 @@ package aws
 
 import (
 	"errors"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -20,7 +21,10 @@ func NewDynamoDbClient(c *Config) *DynamoDbClient {
 }
 
 func (s DynamoDbClient) Import() error {
-	s.prepareForImport()
+	err := s.PrepareForImport()
+	if err != nil {
+		return err
+	}
 
 	importTableOutput, errImportTable := s.svc.ImportTable(s.getImportTableInput())
 	if errImportTable != nil {
@@ -33,23 +37,31 @@ func (s DynamoDbClient) Import() error {
 	case dynamodb.ImportStatusCompleted:
 		log.Println("Importação do arquivo concluída")
 	case dynamodb.ImportStatusCancelled, dynamodb.ImportStatusFailed:
-		s.deleteTable()
+		deleteTableError := s.deleteTable()
+		if deleteTableError != nil {
+			return deleteTableError
+		}
+
 		return errors.New(*describeImportOutput.ImportTableDescription.FailureMessage)
 	}
 
 	return nil
 }
 
-func (s DynamoDbClient) prepareForImport() {
+func (s DynamoDbClient) PrepareForImport() error {
 	if describeTable, exists := s.tableExists(); exists {
 		if *describeTable.Table.TableStatus != dynamodb.TableStatusActive {
 			describeTable = s.waitFinalizationTableStatus()
 		}
 
 		if *describeTable.Table.TableStatus == dynamodb.TableStatusActive {
-			s.deleteTable()
+			err := s.deleteTable()
+			if err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 func (s DynamoDbClient) waitImportTable(importTable *dynamodb.ImportTableOutput) *dynamodb.DescribeImportOutput {
@@ -87,17 +99,17 @@ func (s DynamoDbClient) waitFinalizationTableStatus() *dynamodb.DescribeTableOut
 	return output
 }
 
-func (s DynamoDbClient) deleteTable() {
+func (s DynamoDbClient) deleteTable() error {
 	log.Printf("Excluíndo a tabela %s", s.cfg.table)
 	output, err := s.svc.DeleteTable(&dynamodb.DeleteTableInput{TableName: aws.String(s.cfg.table)})
 	if err != nil {
-		log.Fatalln("Error > deleteTable >", err)
+		return fmt.Errorf("error > deleteTable > %s\n", err.Error())
 	}
 
 	if *output.TableDescription.TableStatus == dynamodb.TableStatusDeleting {
 		for {
 			resp, exists := s.tableExists()
-			if exists && aws.StringValue(resp.Table.TableStatus) == dynamodb.TableStatusDeleting {
+			if exists && *resp.Table.TableStatus == dynamodb.TableStatusDeleting {
 				log.Println("A tabela ainda está sendo excluída...")
 				time.Sleep(5 * time.Second)
 			} else {
@@ -107,6 +119,7 @@ func (s DynamoDbClient) deleteTable() {
 	}
 
 	log.Printf("A tabela %s foi excluída com sucesso\n", s.cfg.table)
+	return nil
 }
 
 func (s DynamoDbClient) tableExists() (*dynamodb.DescribeTableOutput, bool) {
@@ -114,8 +127,8 @@ func (s DynamoDbClient) tableExists() (*dynamodb.DescribeTableOutput, bool) {
 
 	// Se houver um erro, verifica se é porque a tabela não existe
 	if err != nil {
-		aerr, ok := err.(awserr.Error)
-		if ok && aerr.Code() == dynamodb.ErrCodeResourceNotFoundException {
+		awsError, ok := err.(awserr.Error)
+		if ok && awsError.Code() == dynamodb.ErrCodeResourceNotFoundException {
 			log.Printf("A tabela %s não foi encontrada\n", s.cfg.table)
 			return nil, false
 		} else {
@@ -126,11 +139,11 @@ func (s DynamoDbClient) tableExists() (*dynamodb.DescribeTableOutput, bool) {
 }
 
 func (s DynamoDbClient) EnableTimeToLive() error {
-	if len(strings.TrimSpace(s.cfg.ttlAttributeName)) > 0 {
+	if len(strings.TrimSpace(s.cfg.ttlName)) > 0 {
 		_, err := s.svc.UpdateTimeToLive(&dynamodb.UpdateTimeToLiveInput{
 			TableName: aws.String(s.cfg.table),
 			TimeToLiveSpecification: &dynamodb.TimeToLiveSpecification{
-				AttributeName: aws.String(s.cfg.ttlAttributeName),
+				AttributeName: aws.String(s.cfg.ttlName),
 				Enabled:       aws.Bool(true),
 			},
 		})
