@@ -1,4 +1,4 @@
-# go-import-from-s3
+# go-imports-from-s3
 
 ## Sobre o projeto
 Este projeto é uma prova de conceito para validar a importação de um 
