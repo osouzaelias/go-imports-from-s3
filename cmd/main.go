@@ -1,7 +1,9 @@
 package main
 
 import (
+	"go-import-from-s3/internal"
 	"go-import-from-s3/internal/aws"
+	"go-import-from-s3/internal/webhook"
 	"log"
 )
 
@@ -9,7 +11,7 @@ func main() {
 	//shutdown := telemetry.InitProvider()
 	//defer shutdown()
 
-	cfg := aws.NewConfig()
+	cfg := internal.NewConfig()
 	s3Client := aws.NewS3Client(cfg)
 
 	if s3Client.FileExists() {
@@ -46,6 +48,11 @@ func main() {
 				log.Println("Error > PrepareForImport >", err)
 			}
 		}
+	}
+
+	hook := webhook.NewCompletedHook(cfg)
+	if err := hook.NotifyImportCompleted(); err != nil {
+		log.Println("Error > NotifyImportCompleted >", err)
 	}
 
 	log.Println("Processamento concluído com sucesso.")

@@ -4,8 +4,6 @@ go 1.20
 
 require (
 	github.com/aws/aws-sdk-go v1.44.244
-	github.com/brianvoe/gofakeit v3.18.0+incompatible
-	github.com/google/uuid v1.3.0
 	go.opentelemetry.io/otel v1.15.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.38.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.15.0
@@ -18,6 +16,7 @@ require (
 )
 
 require (
+	github.com/brianvoe/gofakeit v3.18.0+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

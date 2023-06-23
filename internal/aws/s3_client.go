@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"go-import-from-s3/internal"
 	"log"
 	"math"
 	"path"
@@ -13,12 +14,12 @@ import (
 
 type S3Client struct {
 	svc *s3.S3
-	cfg *Config
+	cfg *internal.Config
 }
 
-func NewS3Client(c *Config) *S3Client {
+func NewS3Client(c *internal.Config) *S3Client {
 	return &S3Client{
-		s3.New(c.session),
+		s3.New(c.Session()),
 		c,
 	}
 }
@@ -29,12 +30,12 @@ func (s S3Client) MoveToBackup() error {
 	objectSize := *headOutput.ContentLength
 	partSize := int64(5 * math.Pow(2, 20))
 
-	fileName := path.Join(s.cfg.bucket, s.cfg.file)
-	backupFileName := fmt.Sprintf("%s/%s_%s", s.cfg.backup, time.Now().Format("20060102150405"), filepath.Base(s.cfg.file))
+	fileName := path.Join(s.cfg.Bucket(), s.cfg.File())
+	backupFileName := fmt.Sprintf("%s/%s_%s", s.cfg.Backup(), time.Now().Format("20060102150405"), filepath.Base(s.cfg.File()))
 
 	if objectSize < partSize {
 		copyInput := &s3.CopyObjectInput{
-			Bucket:     aws.String(s.cfg.bucket),
+			Bucket:     aws.String(s.cfg.Bucket()),
 			CopySource: aws.String(fileName),
 			Key:        aws.String(backupFileName),
 		}
@@ -47,7 +48,7 @@ func (s S3Client) MoveToBackup() error {
 		var parts []*s3.CompletedPart
 
 		createUploadInput := &s3.CreateMultipartUploadInput{
-			Bucket: aws.String(s.cfg.bucket),
+			Bucket: aws.String(s.cfg.Bucket()),
 			Key:    aws.String(backupFileName),
 		}
 
@@ -64,7 +65,7 @@ func (s S3Client) MoveToBackup() error {
 		for i := int64(1); partStart < objectSize; i++ {
 
 			partInput := &s3.UploadPartCopyInput{
-				Bucket:          aws.String(s.cfg.bucket),
+				Bucket:          aws.String(s.cfg.Bucket()),
 				CopySource:      aws.String(fileName),
 				Key:             aws.String(backupFileName),
 				CopySourceRange: aws.String(fmt.Sprintf("bytes=%d-%d", partStart, partEnd)),
@@ -97,7 +98,7 @@ func (s S3Client) MoveToBackup() error {
 		}
 
 		completeUploadInput := &s3.CompleteMultipartUploadInput{
-			Bucket:          aws.String(s.cfg.bucket),
+			Bucket:          aws.String(s.cfg.Bucket()),
 			Key:             aws.String(backupFileName),
 			UploadId:        uploadID,
 			MultipartUpload: &s3.CompletedMultipartUpload{Parts: parts},
@@ -119,8 +120,8 @@ func (s S3Client) MoveToBackup() error {
 
 func (s S3Client) DeleteFile() error {
 	deleteInput := &s3.DeleteObjectInput{
-		Bucket: aws.String(s.cfg.bucket),
-		Key:    aws.String(s.cfg.file),
+		Bucket: aws.String(s.cfg.Bucket()),
+		Key:    aws.String(s.cfg.File()),
 	}
 
 	_, err := s.svc.DeleteObject(deleteInput)
@@ -128,7 +129,7 @@ func (s S3Client) DeleteFile() error {
 		return err
 	}
 
-	log.Printf("Arquivo %s excluído de %s", s.cfg.file, s.cfg.bucket)
+	log.Printf("Arquivo %s excluído de %s", s.cfg.File(), s.cfg.Bucket())
 	return nil
 }
 
@@ -136,18 +137,18 @@ func (s S3Client) FileExists() bool {
 	output, err := s.getHeadObject()
 
 	if err != nil {
-		log.Printf("Arquivo %s não encontrado", s.cfg.file)
+		log.Printf("Arquivo %s não encontrado", s.cfg.File())
 		return false
 	}
 
-	log.Printf("Arquivo %s com %d bytes encontrado", s.cfg.file, *output.ContentLength)
+	log.Printf("Arquivo %s com %d bytes encontrado", s.cfg.File(), *output.ContentLength)
 
 	return true
 }
 
 func (s S3Client) getHeadObject() (*s3.HeadObjectOutput, error) {
 	return s.svc.HeadObject(&s3.HeadObjectInput{
-		Bucket: aws.String(s.cfg.bucket),
-		Key:    aws.String(s.cfg.file),
+		Bucket: aws.String(s.cfg.Bucket()),
+		Key:    aws.String(s.cfg.File()),
 	})
 }
